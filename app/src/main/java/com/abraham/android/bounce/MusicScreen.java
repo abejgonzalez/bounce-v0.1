@@ -43,21 +43,25 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
     private static final String CLIENT_ID = "ccf6c320eb754ab0bd13358005a32e4f";
     private static final String REDIRECT_URI = "bounceredirect://callback";
     private static final int REQUEST_CODE = 1337;
+    private static final int NAME = 0;
+    private static final int ARTIST = 1;
+    private static final int ID = 2;
     private Player mPlayer;
 
-    public String currentUserId;
     public String[] menuItems = {"About", "Settings"};
-    public String currentSongId = "spotify:track:2TpxZ7JUBn3uw46aR7qd6V";
     public String accessToken;
-    public String currentArtist;
-    public String currentPlaylistId;
-    public String currentSongName;
 
-    public ArrayList<String> playlistIds;
-    public ArrayList<String> playlistNames;
+    /*Holds the Name, Artist and Id of the current song*/
+    public String[] currentTrackData;
+    public String currentUserId;
+    public String currentPlaylistId;
+
     public ArrayList<String> itemsInSpinner;
-    public ArrayList<String> playlistTrackNames;
-    public ArrayList<String> playlistTrackId;
+
+    /*Holds the Playlist names and Ids*/
+    public ArrayList<ArrayList<String>> playlistDataArray;
+    /*Holds the TrackNames, Artists and the Ids*/
+    public ArrayList<ArrayList<String>> trackDataArray;
 
     public ArrayAdapter playlistListViewAdapter;
     public ArrayAdapter playlistSpinnerAdapter;
@@ -96,19 +100,26 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
 
         /*Setup the playlist dropdown menu*/
         itemsInSpinner = new ArrayList<>();
-        playlistSpinnerAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, itemsInSpinner);
+        playlistSpinnerAdapter = new ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, itemsInSpinner);
         Spinner playlistSpinner = (Spinner) findViewById(R.id.playlist_spinner);
         playlistSpinner.setOnItemSelectedListener(this);
         playlistSpinner.setAdapter(playlistSpinnerAdapter);
 
         /*Sets up the global names in the playlists that are passed back and forth between threads*/
-        playlistNames = new ArrayList<>();
-        playlistIds = new ArrayList<>();
-        playlistTrackId = new ArrayList<>();
+        playlistDataArray = new ArrayList<>();
+        playlistDataArray.add(new ArrayList<String>()); //For Playlist Names
+        playlistDataArray.add(new ArrayList<String>()); //For Playlist IDs
+        
+        trackDataArray = new ArrayList<>();
+        trackDataArray.add(new ArrayList<String>()); //For Track Names
+        trackDataArray.add(new ArrayList<String>()); //For Track Artists
+        trackDataArray.add(new ArrayList<String>()); //For Track Ids
 
-        /*Setup the list for all the track names*/
-        playlistTrackNames = new ArrayList<>();
-        playlistListViewAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, playlistTrackNames);
+        /*Init the currentTrackData array*/
+        currentTrackData = new String[3];
+        currentTrackData[ID] = "spotify:track:2TpxZ7JUBn3uw46aR7qd6V";
+        
+        playlistListViewAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, trackDataArray.get(NAME));
         playlistListView = (ListView) findViewById(R.id.playlist_listview);
         playlistListView.setAdapter(playlistListViewAdapter);
         playlistListView.setOnItemClickListener(this);
@@ -139,7 +150,7 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
                 iPointBarValue = (seekBar.getProgress() * currentLengthOfSong) / 100;
                 pointInSong.setText(String.format("%02d:%02d",(iPointBarValue/60000),((iPointBarValue%60000)/1000)));
                 if(isPlayingMusic) {
-                    PlayConfig myConfig =  PlayConfig.createFor("spotify:track:" + currentSongId);
+                    PlayConfig myConfig =  PlayConfig.createFor("spotify:track:" + currentTrackData[ID]);
                     myConfig.withInitialPosition(iPointBarValue);
                     mPlayer.play(myConfig);
                 }
@@ -293,15 +304,15 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         /*Specifies the button for the rest of the program*/
         Button playStopButton = (Button) findViewById(R.id.play_button);
 
-        if (isPlayingMusic == false && isSongStarted == true) {
+        if (!isPlayingMusic && isSongStarted) {
             /*Play song from a certain position*/
-            PlayConfig myConfig =  PlayConfig.createFor("spotify:track:" + currentSongId);
+            PlayConfig myConfig =  PlayConfig.createFor("spotify:track:" + currentTrackData[ID]);
             myConfig.withInitialPosition(iPointBarValue);
             mPlayer.play(myConfig);
             playStopButton.setText("Stop");
             isPlayingMusic = true;
         }
-        else if (isPlayingMusic == true){
+        else if (isPlayingMusic){
             /*Pause song at the certain point*/
             mPlayer.pause();
             playStopButton.setText("Play");
@@ -315,8 +326,8 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         while (state != STATE.IDLE){}
 
         /*Add the pertinient data to the ListView*/
-        for (int i = 0; i < playlistNames.size(); i++) {
-            itemsInSpinner.add(playlistNames.get(i));
+        for (int i = 0; i < playlistDataArray.get(NAME).size(); i++) {
+            itemsInSpinner.add(playlistDataArray.get(NAME).get(i));
         }
         playlistSpinnerAdapter.notifyDataSetChanged();
     }
@@ -326,7 +337,7 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
 
         /*Get the playlist id and load in the songs pertinient to it*/
         playlistName.setText(parent.getItemAtPosition(pos).toString());
-        currentPlaylistId = playlistIds.get(pos);
+        currentPlaylistId = playlistDataArray.get(ARTIST).get(pos);
         loadInPlaylistSongs();
     }
 
@@ -337,15 +348,15 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         TextView songLengthTotal = (TextView) findViewById(R.id.song_length);
 
         /*Get the Id of the song in the list as well as the index*/
-        currentSongId = playlistTrackId.get(arg2);
+        currentTrackData[ID] = trackDataArray.get(ID).get(arg2);
         currentIndexInList = arg2;
 
         /*Play song and fill out the song data*/
-        mPlayer.play("spotify:track:"+currentSongId);
+        mPlayer.play("spotify:track:"+currentTrackData[ID]);
         state = STATE.GET_SONG_DATA;
         while (state != STATE.IDLE){}
-        songName.setText(currentSongName);
-        artistName.setText(currentArtist);
+        songName.setText(currentTrackData[NAME]);
+        artistName.setText(currentTrackData[ARTIST]);
         songLengthTotal.setText(String.format("%02d:%02d", (currentLengthOfSong / 60000), ((currentLengthOfSong % 60000) / 1000)));
 
         /*Reset the seekbar to 0*/
@@ -376,7 +387,7 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         /*Enable click once to go to the beginning and a double-click to go back a song*/
         if (iPointBarValue >= 20){
             iPointBarValue = 0;
-            mPlayer.play("spotify:track:" + currentSongId);
+            mPlayer.play("spotify:track:" + currentTrackData[ID]);
             songSeekBar.setProgress(0);
             isPlayingMusic = true;
             isSongStarted = true;
@@ -384,14 +395,14 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         else if( currentIndexInList > 0) {
             /*Moves the index back and goes to the previous song in the list*/
             currentIndexInList = --currentIndexInList;
-            currentSongId = playlistTrackId.get(currentIndexInList);
-            currentSongName = playlistTrackNames.get(currentIndexInList);
+            currentTrackData[ID] = trackDataArray.get(ID).get(currentIndexInList);
+            currentTrackData[NAME] = trackDataArray.get(NAME).get(currentIndexInList);
             iPointBarValue = 0;
-            mPlayer.play("spotify:track:" + currentSongId);
+            mPlayer.play("spotify:track:" + currentTrackData[ID]);
             state = STATE.GET_SONG_DATA;
             while (state != STATE.IDLE) {}
-            songName.setText(currentSongName);
-            artistName.setText(currentArtist);
+            songName.setText(currentTrackData[NAME]);
+            artistName.setText(currentTrackData[ARTIST]);
             songLengthTotal.setText(String.format("%02d:%02d", (currentLengthOfSong / 60000), ((currentLengthOfSong % 60000) / 1000)));
             songSeekBar.setProgress(0);
             isPlayingMusic = true;
@@ -406,16 +417,16 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         TextView songLengthTotal = (TextView) findViewById(R.id.song_length);
 
         /*Moves to the next song in the list and plays it*/
-        if( currentIndexInList < playlistTrackNames.size() - 1) {
+        if(currentIndexInList < trackDataArray.get(NAME).size() - 1){
             currentIndexInList = ++currentIndexInList;
-            currentSongId = playlistTrackId.get(currentIndexInList);
-            currentSongName = playlistTrackNames.get(currentIndexInList);
+            currentTrackData[ID] = trackDataArray.get(ID).get(currentIndexInList);
+            currentTrackData[NAME] = trackDataArray.get(NAME).get(currentIndexInList);
             iPointBarValue = 0;
-            mPlayer.play("spotify:track:" + currentSongId);
+            mPlayer.play("spotify:track:" + currentTrackData[ID]);
             state = STATE.GET_SONG_DATA;
             while (state != STATE.IDLE) {}
-            songName.setText(currentSongName);
-            artistName.setText(currentArtist);
+            songName.setText(currentTrackData[NAME]);
+            artistName.setText(currentTrackData[ARTIST]);
             songLengthTotal.setText(String.format("%02d:%02d", (currentLengthOfSong / 60000), ((currentLengthOfSong % 60000) / 1000)));
             songSeekBar.setProgress(0);
             isPlayingMusic = true;
@@ -566,12 +577,12 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
                         case IDLE:
                             break;
                         case GET_SONG_DATA:
-                            jsonString = httpGet("https://api.spotify.com/v1/tracks/" + currentSongId, null);
+                            jsonString = httpGet("https://api.spotify.com/v1/tracks/" + currentTrackData[ID], null);
                             try {
                                 Gson gObj = new Gson();
                                 Track track =  gObj.fromJson(jsonString, Track.class);
-                                currentSongName = track.name;
-                                currentArtist = track.artists[0].name;
+                                currentTrackData[NAME] = track.name;
+                                currentTrackData[ARTIST] = track.artists[0].name;
                                 currentLengthOfSong = track.duration_ms;
                             } catch (Exception myException) {
                                 /*An error occured when running the statemachine*/
@@ -583,12 +594,12 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
                             try {
                                 Gson gObj = new Gson();
                                 UsersPlaylistsPaging myPlaylists = gObj.fromJson(jsonString, UsersPlaylistsPaging.class);
-                                playlistNames.clear();
-                                playlistIds.clear();
+                                playlistDataArray.get(NAME).clear();
+                                playlistDataArray.get(ARTIST).clear();
 
                                 for (int i = 0; i < myPlaylists.items.length; i++){
-                                    playlistNames.add(myPlaylists.items[i].name);
-                                    playlistIds.add(myPlaylists.items[i].id);
+                                    playlistDataArray.get(NAME).add(myPlaylists.items[i].name);
+                                    playlistDataArray.get(ARTIST).add(myPlaylists.items[i].id);
                                 }
                             } catch (Exception myException) {
                                 /*An error occured when running the statemachine*/
@@ -612,12 +623,14 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
                             try {
                                 Gson gObj = new Gson();
                                 PlaylistTracksPaging myPlaylistTracks = gObj.fromJson(jsonString, PlaylistTracksPaging.class);
-                                playlistTrackNames.clear();
-                                playlistTrackId.clear();
-                                for (int i = 0; i < myPlaylistTracks.items.length; i++){
-                                    playlistTrackNames.add(myPlaylistTracks.items[i].track.name);
-                                    playlistTrackId.add(myPlaylistTracks.items[i].track.id);
+                                trackDataArray.get(NAME).clear();
+                                trackDataArray.get(ARTIST).clear();
+                                trackDataArray.get(ID).clear();
 
+                                for (int i = 0; i < myPlaylistTracks.items.length; i++){
+                                    trackDataArray.get(NAME).add(myPlaylistTracks.items[i].track.name);
+                                    trackDataArray.get(ARTIST).add(myPlaylistTracks.items[i].track.artists[0].name);
+                                    trackDataArray.get(ID).add(myPlaylistTracks.items[i].track.id);
                                 }
                             }
                             catch(Exception myException){
@@ -644,7 +657,7 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
                     TextView pointInSong = (TextView) findViewById(R.id.song_point);
                     SeekBar songSeekBar = (SeekBar) findViewById(R.id.player_seek_bar);
 
-                    if ( playerState.playing) {
+                    if (playerState.playing) {
                         if (isPlayingMusic) {
                             if (!isSliderMoving) {
                                 /*Move the seekbar to the position that the song is at*/
@@ -655,7 +668,7 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
                         }
                     }
                     else {
-                        onForwardButtonClick(null);
+                       // onForwardButtonClick(null);
                     }
                 }
             };

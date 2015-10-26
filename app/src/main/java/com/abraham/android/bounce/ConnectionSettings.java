@@ -1,11 +1,12 @@
 package com.abraham.android.bounce;
 
-import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.CompoundButton;
 import android.widget.Switch;
+import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -16,7 +17,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 
 
-public class ConnectionSettings extends ActionBarActivity {
+public class ConnectionSettings extends ActionBarActivity implements CompoundButton.OnCheckedChangeListener{
     private boolean isClient = false;
     private boolean isHost = false;
     /*Not any specific number*/
@@ -30,59 +31,55 @@ public class ConnectionSettings extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_connection_settings);
 
-        hostSwitch = (Switch) findViewById(R.id.host_start_switch);
-        hostSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                BounceServer myServer;
-                if (isChecked) {
-                    /*The switch is pressed*/
-                    //if (!isClient){
-                /*The current phone is not a client. Can only either be a client or host.*/
-                    try {
-                    /*Code taken from http://docs.oracle.com/javase/tutorial/networking/sockets/clientServer.html*/
-                        myServer = new BounceServer();
-                        myServer.serverConnect();
-                        isHost = true;
-                    } catch (Exception myException) {
-                    /*Error occurred during server init*/
-                    }
-                    //}
-                } else {
-                    /*The switch is not pressed. Therefore stop the server*/
-                    if (isHost) {
-                        //myServer.endSession();
-                        isHost = false;
+        if(savedInstanceState == null) {
+            hostSwitch = (Switch) findViewById(R.id.host_start_switch);
+            hostSwitch.setOnCheckedChangeListener(this);
+
+            /*clientSwitch = (Switch) findViewById(R.id.client_switch);
+            clientSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                    BounceClient myClient;
+
+                    if (isChecked) {
+                        //if (!isHost){
+                        try {
+                            myClient = new BounceClient();
+                            myClient.clientConnect();
+                            isClient = true;
+                        } catch (Exception myException) {
+                    /*Error occurred during server init
+                        }
+                        // }
+                    } else {
+            /*Disconnect the client
+                        if (isClient) {
+                            //myClient.endSession();
+                            isClient = false;
+                        }
                     }
                 }
-            }
-        });
+            });*/
+        }
+    }
 
-        clientSwitch = (Switch) findViewById(R.id.client_switch);
-        clientSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                BounceClient myClient;
-
-                if (isChecked) {
-                    //if (!isHost){
-                    try {
-                        myClient = new BounceClient();
-                        myClient.clientConnect();
-                        isClient = true;
-                    } catch (Exception myException) {
-                    /*Error occurred during server init*/
-                    }
-                    // }
-                } else {
-            /*Disconnect the client*/
-                    if (isClient) {
-                        //myClient.endSession();
-                        isClient = false;
-                    }
-                }
+    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked){
+        Toast.makeText(this, "The Switch is " + (isChecked ? "on" : "off"),
+                Toast.LENGTH_SHORT).show();
+        if(isChecked) {
+            //do stuff when Switch is ON
+            /*static BounceServer myServer;
+            try{
+                myServer = new BounceServer();
+                myServer.serverConnect();
+                isHost = true;
             }
-        });
+            catch(Exception myException){
+                /*An error occurred with execution
+            }*/
+        } else {
+            //do stuff when Switch if OFF
+        }
     }
 
     @Override
@@ -273,7 +270,6 @@ public class ConnectionSettings extends ActionBarActivity {
         }
 
     }
-
 
 
 }

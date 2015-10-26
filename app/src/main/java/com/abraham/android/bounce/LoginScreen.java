@@ -80,8 +80,6 @@ public class LoginScreen extends ActionBarActivity {
     public void Switch_to_Main() {
         /*Switched this to the NowPlayingScreen*/
         Intent login_intent = new Intent(this, MusicScreen.class);
-        //login_intent.putExtra(USERNAME_MESSAGE, USERNAME_DEFAULT);
-        //login_intent.putExtra(PASSWORD_MESSAGE, PASSWORD_DEFAULT);
         startActivity(login_intent);
         finish();
     }

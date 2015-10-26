@@ -15,6 +15,7 @@ public class Settings extends ActionBarActivity{
 
     public ListView settingsListView;
     public String[] menuItems = {"Host Settings"};
+    boolean ifConnectionRunning = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,8 +27,11 @@ public class Settings extends ActionBarActivity{
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 if (parent.getItemAtPosition(position).equals("Host Settings")) {
-                    Intent sendIntent = new Intent(getApplicationContext(), ConnectionSettings.class);
-                    startActivity(sendIntent);
+                    if (!ifConnectionRunning) {
+                        Intent sendIntent = new Intent(getApplicationContext(), ConnectionSettings.class);
+                        startActivity(sendIntent);
+                        finish();
+                    }
                 }
             }
         });
