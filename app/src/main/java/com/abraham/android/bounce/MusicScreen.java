@@ -20,9 +20,12 @@ import com.spotify.sdk.android.authentication.AuthenticationRequest;
 import com.spotify.sdk.android.authentication.AuthenticationResponse;
 import com.spotify.sdk.android.player.Config;
 import com.spotify.sdk.android.player.ConnectionStateCallback;
+import com.spotify.sdk.android.player.ConnectionStateCallback;
 import com.spotify.sdk.android.player.PlayConfig;
 import com.spotify.sdk.android.player.Player;
 import com.spotify.sdk.android.player.PlayerNotificationCallback;
+import com.spotify.sdk.android.player.PlayerState;
+import com.spotify.sdk.android.player.PlayerStateCallback;
 import com.spotify.sdk.android.player.PlayerState;
 import com.spotify.sdk.android.player.PlayerStateCallback;
 import com.spotify.sdk.android.player.Spotify;
@@ -39,23 +42,15 @@ import java.util.ArrayList;
 
 
 public class MusicScreen extends Activity implements PlayerNotificationCallback, ConnectionStateCallback, AdapterView.OnItemSelectedListener, AdapterView.OnItemClickListener {
-
-    private static final String CLIENT_ID = "ccf6c320eb754ab0bd13358005a32e4f";
-    private static final String REDIRECT_URI = "bounceredirect://callback";
-    private static final int REQUEST_CODE = 1337;
+    
     private static final int NAME = 0;
     private static final int ARTIST = 1;
     private static final int ID = 2;
-    private Player mPlayer;
-
+    
+    /*Holds the items in the navigation bar*/
     public String[] menuItems = {"About", "Settings"};
-    public String accessToken;
-
-    /*Holds the Name, Artist and Id of the current song*/
-    public String[] currentTrackData;
-    public String currentUserId;
-    public String currentPlaylistId;
-
+    
+    /*Is the spinner that holds the playlist items*/
     public ArrayList<String> itemsInSpinner;
 
     /*Holds the Playlist names and Ids*/
@@ -65,33 +60,57 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
 
     public ArrayAdapter playlistListViewAdapter;
     public ArrayAdapter playlistSpinnerAdapter;
+    
+    public MusicPlayerData mpData;
+    
+    private class  MusicPlayerData {
+        /*Holds current data about the song*/
+        public int currentIndexInList;
+        public int currentLengthOfSong;
 
-    public STATE state = STATE.IDLE;
+        /*Holds the Name, Artist and Id of the current song*/
+        public String[] currentTrackData;
+        public String currentUserId;
+        public String currentPlaylistId;
+        
+        /*Data values for the slider*/
+        public int iPointBarValue = 0;
+        public boolean isSliderMoving = false;
 
-    public ListView playlistListView;
-    public boolean isPlayingMusic = false;
-    public boolean isSongStarted = false;
-    public int currentLengthOfSong;
-    public int iPointBarValue = 0;
-    public boolean isSliderMoving = false;
-    public int currentIndexInList;
+        /*Flags for the music player*/
+        public boolean isPlayingMusic = false;
+        public boolean isSongStarted = false;
+
+        public State state = State.IDLE;
+
+        private static final String CLIENT_ID = "ccf6c320eb754ab0bd13358005a32e4f";
+        private static final String REDIRECT_URI = "bounceredirect://callback";
+        private static final int REQUEST_CODE = 1337;
+
+        public String accessToken;
+
+        private Player mPlayer;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_music_screen);
         /*The initialization for the lists and the different elements of the layout*/
-        Init();
+        initializeLayout();
         /*Sets up the Spotify player (Authenticates and Sets up a login)(Makes sure that this portion is not done twice)*/
         if (savedInstanceState == null) {
-            AuthenticationRequest.Builder builder = new AuthenticationRequest.Builder(CLIENT_ID, AuthenticationResponse.Type.TOKEN, REDIRECT_URI);
+            AuthenticationRequest.Builder builder = new AuthenticationRequest.Builder(mpData.CLIENT_ID, AuthenticationResponse.Type.TOKEN, mpData.REDIRECT_URI);
             builder.setScopes(new String[]{"user-read-private", "streaming"});
             AuthenticationRequest request = builder.build();
-            AuthenticationClient.openLoginActivity(MusicScreen.this, REQUEST_CODE, request);
+            AuthenticationClient.openLoginActivity(MusicScreen.this, mpData.REQUEST_CODE, request);
         }
     }
 
-    private void Init() {
+    private void initializeLayout() {
+        /*Creates the music data object that contains the mpData.state of the player*/
+        mpData = new MusicPlayerData();
+        
         /*Setups up the slide-in menu*/
         ListView drawerListView = (ListView) findViewById(R.id.left_drawer);
         drawerListView.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, menuItems));
@@ -109,17 +128,20 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         playlistDataArray = new ArrayList<>();
         playlistDataArray.add(new ArrayList<String>()); //For Playlist Names
         playlistDataArray.add(new ArrayList<String>()); //For Playlist IDs
-        
+
+        /*Sets up the track data that is being passed between the list and networking thread*/
         trackDataArray = new ArrayList<>();
         trackDataArray.add(new ArrayList<String>()); //For Track Names
         trackDataArray.add(new ArrayList<String>()); //For Track Artists
         trackDataArray.add(new ArrayList<String>()); //For Track Ids
 
-        /*Init the currentTrackData array*/
-        currentTrackData = new String[3];
-        currentTrackData[ID] = "spotify:track:2TpxZ7JUBn3uw46aR7qd6V";
+        /*Initialize the mpData.currentTrackData array*/
+        mpData.currentTrackData = new String[3];
+        mpData.currentTrackData[ID] = "spotify:track:2TpxZ7JUBn3uw46aR7qd6V";
         
         playlistListViewAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, trackDataArray.get(NAME));
+        //////////////////////////////////////////////////////////////////////////////////////
+        ListView playlistListView;
         playlistListView = (ListView) findViewById(R.id.playlist_listview);
         playlistListView.setAdapter(playlistListViewAdapter);
         playlistListView.setOnItemClickListener(this);
@@ -130,34 +152,35 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 TextView pointInSong = (TextView) findViewById(R.id.song_point);
-
-                if(isSliderMoving){
-                    int point = (progress * currentLengthOfSong)/100;
+                /*Sets the value of the slider to what the person is moving it to*/
+                if(mpData.isSliderMoving){
+                    int point = (progress * mpData.currentLengthOfSong)/100;
                     pointInSong.setText(String.format("%02d:%02d", (point / 60000), ((point % 60000) / 1000)));
                 }
             }
 
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
-                isSliderMoving = true;
+                mpData.isSliderMoving = true;
             }
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
                 TextView pointInSong = (TextView) findViewById(R.id.song_point);
-
-                isSliderMoving = false;
-                iPointBarValue = (seekBar.getProgress() * currentLengthOfSong) / 100;
-                pointInSong.setText(String.format("%02d:%02d",(iPointBarValue/60000),((iPointBarValue%60000)/1000)));
-                if(isPlayingMusic) {
-                    PlayConfig myConfig =  PlayConfig.createFor("spotify:track:" + currentTrackData[ID]);
-                    myConfig.withInitialPosition(iPointBarValue);
-                    mPlayer.play(myConfig);
+                mpData.isSliderMoving = false;
+                /*mpData.states the location of the song from the trackbar*/
+                mpData.iPointBarValue = (seekBar.getProgress() * mpData.currentLengthOfSong) / 100;
+                pointInSong.setText(String.format("%02d:%02d",(mpData.iPointBarValue/60000),((mpData.iPointBarValue%60000)/1000)));
+                if(mpData.isPlayingMusic) {
+                    /*Plays the music with that start*/
+                    PlayConfig myConfig =  PlayConfig.createFor("spotify:track:" + mpData.currentTrackData[ID]);
+                    myConfig.withInitialPosition(mpData.iPointBarValue);
+                    mpData.mPlayer.play(myConfig);
                 }
             }
         });
 
-        /*Setup the statemachine running in another thread that polls the webendpoint*/
+        /*Setup the mpData.statemachine running in another thread that polls the webendpoint*/
         NetworkingThread myNetworkThread = new NetworkingThread();
         myNetworkThread.start();
     }
@@ -176,7 +199,7 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
 
-        //noinspection SimplifiableIfStatement
+        //noinspection SimplifiableIfmpData.statement
         if (id == R.id.action_settings) {
             return true;
         }
@@ -189,25 +212,25 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         super.onActivityResult(requestCode, resultCode, intent);
 
         /*Check to make sure that the activity that finished was the Spotify activity*/
-        if (requestCode == REQUEST_CODE) {
+        if (requestCode == mpData.REQUEST_CODE) {
             AuthenticationResponse response = AuthenticationClient.getResponse(resultCode, intent);
             if (response.getType() == AuthenticationResponse.Type.TOKEN) {
                 /*Setup a new configuration for Spotify*/
-                Config playerConfig = new Config(this, response.getAccessToken(), CLIENT_ID);
-                accessToken = response.getAccessToken();
+                Config playerConfig = new Config(this, response.getAccessToken(), mpData.CLIENT_ID);
+                mpData.accessToken = response.getAccessToken();
 
-                /*Get the UserId using the statemachine in the other thread*/
-                state = STATE.GET_USER_ID;
-                while (state != STATE.IDLE) {}
+                /*Get the UserId using the mpData.statemachine in the other thread*/
+                mpData.state = mpData.state.GET_USER_ID;
+                while (mpData.state != mpData.state.IDLE) {}
 
                 /*Fill the list with an initial playlist*/
                 playlistButtonClicked();
 
-                mPlayer = Spotify.getPlayer(playerConfig, this, new Player.InitializationObserver() {
+                mpData.mPlayer = Spotify.getPlayer(playerConfig, this, new Player.InitializationObserver() {
                     @Override
                     public void onInitialized(Player player) {
-                        mPlayer.addConnectionStateCallback(MusicScreen.this);
-                        mPlayer.addPlayerNotificationCallback(MusicScreen.this);
+                        mpData.mPlayer.addConnectionStateCallback(MusicScreen.this);
+                        mpData.mPlayer.addPlayerNotificationCallback(MusicScreen.this);
                         /*Have another thread make periodic callbacks inorder to refresh seek bar*/
                         SongThread mySongThread = new SongThread();
                         mySongThread.Init();
@@ -262,68 +285,35 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
     protected void onDestroy() {
         Spotify.destroyPlayer(this);
         super.onDestroy();
-    }
-
-    public String httpGet(String urlStr, String accessToken) throws IOException {
-        try {
-            /*Send a Get response to the specific endpoint*/
-            URL url = new URL(urlStr);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
-            if (accessToken != null) {
-                conn.setRequestProperty("Authorization", "Bearer " + accessToken);
-            }
-            if (conn.getResponseCode() != 200) {
-                throw new IOException(conn.getResponseMessage());
-            }
-
-            /* Buffer the result into a string */
-            BufferedReader rd = new BufferedReader(
-                    new InputStreamReader(conn.getInputStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = rd.readLine()) != null) {
-                sb.append(line);
-            }
-
-            /*Close the connection and the reader*/
-            rd.close();
-            conn.disconnect();
-
-            /*Put the string into the global variable*/
-            return sb.toString();
-
-        }
-        catch (Exception myException) {
-            /*Error occurred when sending the Get request*/
-            return null;
-        }
+        Log.d("MainActivity", "Spotify Player destroyed");
     }
 
     public void onPlayStopButton(View view) {
+        Log.d("Bounce", "Play Stop Button Clicked");
         /*Specifies the button for the rest of the program*/
         Button playStopButton = (Button) findViewById(R.id.play_button);
 
-        if (!isPlayingMusic && isSongStarted) {
+        if (!mpData.isPlayingMusic && mpData.isSongStarted) {
             /*Play song from a certain position*/
-            PlayConfig myConfig =  PlayConfig.createFor("spotify:track:" + currentTrackData[ID]);
-            myConfig.withInitialPosition(iPointBarValue);
-            mPlayer.play(myConfig);
+            PlayConfig myConfig =  PlayConfig.createFor("spotify:track:" + mpData.currentTrackData[ID]);
+            myConfig.withInitialPosition(mpData.iPointBarValue);
+            mpData.mPlayer.play(myConfig);
             playStopButton.setText("Stop");
-            isPlayingMusic = true;
+            mpData.isPlayingMusic = true;
         }
-        else if (isPlayingMusic){
+        else if (mpData.isPlayingMusic){
             /*Pause song at the certain point*/
-            mPlayer.pause();
+            mpData.mPlayer.pause();
             playStopButton.setText("Play");
-            isPlayingMusic = false;
+            mpData.isPlayingMusic = false;
         }
     }
 
     public void playlistButtonClicked() {
-        /*Use the statemachine in the NetworkThread to retrieve the playlists*/
-        state = STATE.GET_PLAYLISTS;
-        while (state != STATE.IDLE){}
+        Log.d("Bounce", "Playlist Button Clicked");
+        /*Use the mpData.statemachine in the NetworkThread to retrieve the playlists*/
+        mpData.state = mpData.state.GET_PLAYLISTS;
+        while (mpData.state != mpData.state.IDLE){}
 
         /*Add the pertinient data to the ListView*/
         for (int i = 0; i < playlistDataArray.get(NAME).size(); i++) {
@@ -333,45 +323,42 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
     }
 
     public void onItemSelected(AdapterView<?> parent, View view, int pos, long id){
+        Log.d("Bounce", "Playlist Changed in Spinner");
         TextView playlistName = (TextView) findViewById(R.id.playlist_name);
-
         /*Get the playlist id and load in the songs pertinient to it*/
         playlistName.setText(parent.getItemAtPosition(pos).toString());
-        currentPlaylistId = playlistDataArray.get(ARTIST).get(pos);
-        loadInPlaylistSongs();
+        mpData.currentPlaylistId = playlistDataArray.get(ARTIST).get(pos);
+        /*Use the mpData.statemaching in the NetworkThread to get a list of playlist songs and ids*/
+        mpData.state = mpData.state.GET_PLAYLIST_SONGS;
+        while (mpData.state != mpData.state.IDLE){}
+        playlistListViewAdapter.notifyDataSetChanged();
     }
 
     public void onItemClick(AdapterView<?> arg0, View arg1, int arg2, long arg3) {
+        Log.d("Bounce", "Song selected in Listview");
         SeekBar songSeekBar = (SeekBar) findViewById(R.id.player_seek_bar);
         TextView songName = (TextView) findViewById(R.id.song_name);
         TextView artistName = (TextView) findViewById(R.id.artist_name);
         TextView songLengthTotal = (TextView) findViewById(R.id.song_length);
 
         /*Get the Id of the song in the list as well as the index*/
-        currentTrackData[ID] = trackDataArray.get(ID).get(arg2);
-        currentIndexInList = arg2;
+        mpData.currentTrackData[ID] = trackDataArray.get(ID).get(arg2);
+        mpData.currentIndexInList = arg2;
 
         /*Play song and fill out the song data*/
-        mPlayer.play("spotify:track:"+currentTrackData[ID]);
-        state = STATE.GET_SONG_DATA;
-        while (state != STATE.IDLE){}
-        songName.setText(currentTrackData[NAME]);
-        artistName.setText(currentTrackData[ARTIST]);
-        songLengthTotal.setText(String.format("%02d:%02d", (currentLengthOfSong / 60000), ((currentLengthOfSong % 60000) / 1000)));
+        mpData.mPlayer.play("spotify:track:"+mpData.currentTrackData[ID]);
+        mpData.state = mpData.state.GET_SONG_DATA;
+        while (mpData.state != mpData.state.IDLE){}
+        songName.setText(mpData.currentTrackData[NAME]);
+        artistName.setText(mpData.currentTrackData[ARTIST]);
+        songLengthTotal.setText(String.format("%02d:%02d", (mpData.currentLengthOfSong / 60000), ((mpData.currentLengthOfSong % 60000) / 1000)));
 
         /*Reset the seekbar to 0*/
-        iPointBarValue = 0;
+        mpData.iPointBarValue = 0;
         songSeekBar.setProgress(0);
 
-        isPlayingMusic = true;
-        isSongStarted = true;
-    }
-
-    public void loadInPlaylistSongs(){
-        /*Use the statemaching in the NetworkThread to get a list of playlist songs and ids*/
-        state = STATE.GET_PLAYLIST_SONGS;
-        while (state != STATE.IDLE){}
-        playlistListViewAdapter.notifyDataSetChanged();
+        mpData.isPlayingMusic = true;
+        mpData.isSongStarted = true;
     }
 
     public void onNothingSelected(AdapterView<?> parent) {
@@ -379,63 +366,81 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
     }
 
     public void onBackButtonClick(View view){
+        Log.d("Bounce", "Back Button clicked");
         SeekBar songSeekBar = (SeekBar) findViewById(R.id.player_seek_bar);
         TextView songName = (TextView) findViewById(R.id.song_name);
         TextView artistName = (TextView) findViewById(R.id.artist_name);
         TextView songLengthTotal = (TextView) findViewById(R.id.song_length);
 
         /*Enable click once to go to the beginning and a double-click to go back a song*/
-        if (iPointBarValue >= 20){
-            iPointBarValue = 0;
-            mPlayer.play("spotify:track:" + currentTrackData[ID]);
+        if (mpData.iPointBarValue >= 20){
+            mpData.iPointBarValue = 0;
+            mpData.mPlayer.play("spotify:track:" + mpData.currentTrackData[ID]);
             songSeekBar.setProgress(0);
-            isPlayingMusic = true;
-            isSongStarted = true;
+            mpData.isPlayingMusic = true;
+            mpData.isSongStarted = true;
         }
-        else if( currentIndexInList > 0) {
+        else if( mpData.currentIndexInList > 0) {
             /*Moves the index back and goes to the previous song in the list*/
-            currentIndexInList = --currentIndexInList;
-            currentTrackData[ID] = trackDataArray.get(ID).get(currentIndexInList);
-            currentTrackData[NAME] = trackDataArray.get(NAME).get(currentIndexInList);
-            iPointBarValue = 0;
-            mPlayer.play("spotify:track:" + currentTrackData[ID]);
-            state = STATE.GET_SONG_DATA;
-            while (state != STATE.IDLE) {}
-            songName.setText(currentTrackData[NAME]);
-            artistName.setText(currentTrackData[ARTIST]);
-            songLengthTotal.setText(String.format("%02d:%02d", (currentLengthOfSong / 60000), ((currentLengthOfSong % 60000) / 1000)));
+            mpData.currentIndexInList = --mpData.currentIndexInList;
+            mpData.currentTrackData[ID] = trackDataArray.get(ID).get(mpData.currentIndexInList);
+            mpData.currentTrackData[NAME] = trackDataArray.get(NAME).get(mpData.currentIndexInList);
+            mpData.iPointBarValue = 0;
+            mpData.mPlayer.play("spotify:track:" + mpData.currentTrackData[ID]);
+            mpData.state = mpData.state.GET_SONG_DATA;
+            while (mpData.state != mpData.state.IDLE) {}
+            songName.setText(mpData.currentTrackData[NAME]);
+            artistName.setText(mpData.currentTrackData[ARTIST]);
+            songLengthTotal.setText(String.format("%02d:%02d", (mpData.currentLengthOfSong / 60000), ((mpData.currentLengthOfSong % 60000) / 1000)));
             songSeekBar.setProgress(0);
-            isPlayingMusic = true;
-            isSongStarted = true;
+            mpData.isPlayingMusic = true;
+            mpData.isSongStarted = true;
         }
     }
 
     public void onForwardButtonClick (View view){
+        Log.d("Bounce", "Forward Button Clicked");
         SeekBar songSeekBar = (SeekBar) findViewById(R.id.player_seek_bar);
         TextView songName = (TextView) findViewById(R.id.song_name);
         TextView artistName = (TextView) findViewById(R.id.artist_name);
         TextView songLengthTotal = (TextView) findViewById(R.id.song_length);
 
         /*Moves to the next song in the list and plays it*/
-        if(currentIndexInList < trackDataArray.get(NAME).size() - 1){
-            currentIndexInList = ++currentIndexInList;
-            currentTrackData[ID] = trackDataArray.get(ID).get(currentIndexInList);
-            currentTrackData[NAME] = trackDataArray.get(NAME).get(currentIndexInList);
-            iPointBarValue = 0;
-            mPlayer.play("spotify:track:" + currentTrackData[ID]);
-            state = STATE.GET_SONG_DATA;
-            while (state != STATE.IDLE) {}
-            songName.setText(currentTrackData[NAME]);
-            artistName.setText(currentTrackData[ARTIST]);
-            songLengthTotal.setText(String.format("%02d:%02d", (currentLengthOfSong / 60000), ((currentLengthOfSong % 60000) / 1000)));
+        if(mpData.currentIndexInList < trackDataArray.get(NAME).size() - 1){
+            mpData.currentIndexInList = ++mpData.currentIndexInList;
+            mpData.currentTrackData[ID] = trackDataArray.get(ID).get(mpData.currentIndexInList);
+            mpData.currentTrackData[NAME] = trackDataArray.get(NAME).get(mpData.currentIndexInList);
+            mpData.iPointBarValue = 0;
+            mpData.mPlayer.play("spotify:track:" + mpData.currentTrackData[ID]);
+            mpData.state = mpData.state.GET_SONG_DATA;
+            while (mpData.state != mpData.state.IDLE) {}
+            songName.setText(mpData.currentTrackData[NAME]);
+            artistName.setText(mpData.currentTrackData[ARTIST]);
+            songLengthTotal.setText(String.format("%02d:%02d", (mpData.currentLengthOfSong / 60000), ((mpData.currentLengthOfSong % 60000) / 1000)));
             songSeekBar.setProgress(0);
-            isPlayingMusic = true;
-            isSongStarted = true;
+            mpData.isPlayingMusic = true;
+            mpData.isSongStarted = true;
+        }
+        else{
+            /*This starts the first song if you are at the last song in the list*/
+            mpData.currentIndexInList = 0;
+            mpData.currentTrackData[ID] = trackDataArray.get(ID).get(mpData.currentIndexInList);
+            mpData.currentTrackData[NAME] = trackDataArray.get(NAME).get(mpData.currentIndexInList);
+            mpData.iPointBarValue = 0;
+            mpData.mPlayer.play("spotify:track:" + mpData.currentTrackData[ID]);
+            mpData.state = mpData.state.GET_SONG_DATA;
+            while (mpData.state != mpData.state.IDLE) {}
+            songName.setText(mpData.currentTrackData[NAME]);
+            artistName.setText(mpData.currentTrackData[ARTIST]);
+            songLengthTotal.setText(String.format("%02d:%02d", (mpData.currentLengthOfSong / 60000), ((mpData.currentLengthOfSong % 60000) / 1000)));
+            songSeekBar.setProgress(0);
+            mpData.isPlayingMusic = true;
+            mpData.isSongStarted = true;
         }
     }
 
-    /*Enum for statemachine in NetworkingThread*/
-    public enum STATE {
+    /*Enum for mpData.statemachine in NetworkingThread*/
+    private enum State {
         IDLE,
         GET_SONG_DATA,
         GET_PLAYLISTS,
@@ -446,6 +451,7 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
     private class DrawerItemClickListener implements ListView.OnItemClickListener {
         @Override
         public void onItemClick(AdapterView parent, View view, int position, long id) {
+            Log.d("Bounce", "NavDrawer Clicked");
             ListView drawerListView = (ListView) findViewById(R.id.left_drawer);
             String recievedString = (String) drawerListView.getItemAtPosition(position);
             Intent sendIntent;
@@ -464,7 +470,7 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         }
     }
 
-    public class NetworkingThread extends Thread {
+    private class NetworkingThread extends Thread {
 
         public class User{
             private String birthdate;
@@ -567,59 +573,105 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
             private int total;
         }
 
+
+        public String httpGet(String urlStr, String accessToken) throws IOException {
+            try {
+            /*Send a Get response to the specific endpoint*/
+                URL url = new URL(urlStr);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+
+                if (accessToken != null) {
+                    conn.setRequestProperty("Authorization", "Bearer " + accessToken);
+                }
+                if (conn.getResponseCode() != 200) {
+                    throw new IOException(conn.getResponseMessage());
+                }
+
+            /* Buffer the result into a string */
+                BufferedReader rd = new BufferedReader(
+                        new InputStreamReader(conn.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = rd.readLine()) != null) {
+                    sb.append(line);
+                }
+
+            /*Close the connection and the reader*/
+                rd.close();
+                conn.disconnect();
+
+            /*Put the string into the global variable*/
+                return sb.toString();
+
+            }
+            catch (Exception myException) {
+            /*Error occurred when sending the Get request*/
+                return null;
+            }
+        }
+
         public void run() {
-            /*Statemachine that sends out the Get requests and proceses the incoming data*/
+            /*mpData.statemachine that sends out the Get requests and proceses the incoming data*/
             while (true) {
                 String jsonString;
 
                 try {
-                    switch (state) {
+                    switch (mpData.state) {
                         case IDLE:
                             break;
                         case GET_SONG_DATA:
-                            jsonString = httpGet("https://api.spotify.com/v1/tracks/" + currentTrackData[ID], null);
+                            Log.d("Bounce", "Retrieving Song Data");
+                            jsonString = httpGet("https://api.spotify.com/v1/tracks/" + mpData.currentTrackData[ID], null);
                             try {
                                 Gson gObj = new Gson();
                                 Track track =  gObj.fromJson(jsonString, Track.class);
-                                currentTrackData[NAME] = track.name;
-                                currentTrackData[ARTIST] = track.artists[0].name;
-                                currentLengthOfSong = track.duration_ms;
+                                mpData.currentTrackData[NAME] = track.name;
+                                mpData.currentTrackData[ARTIST] = track.artists[0].name;
+                                mpData.currentLengthOfSong = track.duration_ms;
+                                Log.d("Bounce", "Successful retrieval");
                             } catch (Exception myException) {
-                                /*An error occured when running the statemachine*/
+                                /*An error occured when running the mpData.statemachine*/
+                                Log.d("Bounce", "Failure to retrieve song data");
                             }
-                            state = STATE.IDLE;
+                            mpData.state = mpData.state.IDLE;
                             break;
                         case GET_PLAYLISTS:
-                            jsonString = httpGet("https://api.spotify.com/v1/users/" + currentUserId + "/playlists", accessToken);
+                            Log.d("Bounce", "Retrieving Playlist Data");
+                            jsonString = httpGet("https://api.spotify.com/v1/users/" + mpData.currentUserId + "/playlists", mpData.accessToken);
                             try {
                                 Gson gObj = new Gson();
                                 UsersPlaylistsPaging myPlaylists = gObj.fromJson(jsonString, UsersPlaylistsPaging.class);
                                 playlistDataArray.get(NAME).clear();
-                                playlistDataArray.get(ARTIST).clear();
+                                playlistDataArray.get(1).clear();
 
                                 for (int i = 0; i < myPlaylists.items.length; i++){
                                     playlistDataArray.get(NAME).add(myPlaylists.items[i].name);
-                                    playlistDataArray.get(ARTIST).add(myPlaylists.items[i].id);
+                                    playlistDataArray.get(1).add(myPlaylists.items[i].id);
                                 }
+                                Log.d("Bounce", "Successful retrieval");
                             } catch (Exception myException) {
-                                /*An error occured when running the statemachine*/
+                                /*An error occured when running the mpData.statemachine*/
+                                Log.d("Bounce", "Failure to retrieve playlist data");
                             }
-                            state = STATE.IDLE;
+                            mpData.state = mpData.state.IDLE;
                             break;
                         case GET_USER_ID:
-                            jsonString = httpGet("https://api.spotify.com/v1/me", accessToken);
+                            Log.d("Bounce", "Retrieving User ID");
+                            jsonString = httpGet("https://api.spotify.com/v1/me", mpData.accessToken);
                             try {
                                 Gson gObj = new Gson();
                                 User user =  gObj.fromJson(jsonString, User.class);
-                                currentUserId = user.id;
-
+                                mpData.currentUserId = user.id;
+                                Log.d("Bounce", "Successful retrieval");
                             } catch (Exception myException) {
-                               /*An error occured when running the statemachine*/
+                               /*An error occured when running the mpData.statemachine*/
+                                Log.d("Bounce", "Failure to retrieve User ID");
                             }
-                            state = STATE.IDLE;
+                            mpData.state = mpData.state.IDLE;
                             break;
                         case GET_PLAYLIST_SONGS:
-                            jsonString = httpGet("https://api.spotify.com/v1/users/" + currentUserId + "/playlists/" + currentPlaylistId + "/tracks", accessToken);
+                            Log.d("Bounce", "Retrieving playlist songs");
+                            jsonString = httpGet("https://api.spotify.com/v1/users/" + mpData.currentUserId + "/playlists/" + mpData.currentPlaylistId + "/tracks", mpData.accessToken);
                             try {
                                 Gson gObj = new Gson();
                                 PlaylistTracksPaging myPlaylistTracks = gObj.fromJson(jsonString, PlaylistTracksPaging.class);
@@ -632,21 +684,23 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
                                     trackDataArray.get(ARTIST).add(myPlaylistTracks.items[i].track.artists[0].name);
                                     trackDataArray.get(ID).add(myPlaylistTracks.items[i].track.id);
                                 }
+                                Log.d("Bounce", "Successful retrieval");
                             }
                             catch(Exception myException){
-                                /*An error occured when running the statemachine*/
+                                /*An error occured when running the mpData.statemachine*/
+                                Log.d("Bounce", "Failure retrieving playlist songs");
                             }
-                            state = STATE.IDLE;
+                            mpData.state = mpData.state.IDLE;
                             break;
                     }
                 } catch (Exception myException) {
-                    myException.getMessage();
+                    Log.d("Bounce", "Error - " + myException.getMessage());
                 }
             }
         }
     }
 
-    public class SongThread extends Thread{
+    private class SongThread extends Thread{
 
         PlayerStateCallback myCallback;
 
@@ -658,13 +712,14 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
                     SeekBar songSeekBar = (SeekBar) findViewById(R.id.player_seek_bar);
 
                     if (playerState.playing) {
-                        if (isPlayingMusic) {
-                            if (!isSliderMoving) {
+                        if (mpData.isPlayingMusic) {
+                            if (!mpData.isSliderMoving) {
+                                Log.d("Bounce", "Seekbar Updated with new position");
                                 /*Move the seekbar to the position that the song is at*/
                                 pointInSong.setText(String.format("%02d:%02d", (playerState.positionInMs / 60000), ((playerState.positionInMs % 60000) / 1000)));
-                                songSeekBar.setProgress(((playerState.positionInMs * 100) / currentLengthOfSong));
+                                songSeekBar.setProgress(((playerState.positionInMs * 100) / mpData.currentLengthOfSong));
                             }
-                            iPointBarValue = playerState.positionInMs;
+                            mpData.iPointBarValue = playerState.positionInMs;
                         }
                     }
                     else {
@@ -682,8 +737,8 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
                 catch(Exception myException){
                     /*An error occured when trying to sleep this thread*/
                 }
-                if(isPlayingMusic){
-                    mPlayer.getPlayerState(myCallback);
+                if(mpData.isPlayingMusic){
+                    mpData.mPlayer.getPlayerState(myCallback);
                 }
                 else{
                     /*Continue on and do not callback*/
