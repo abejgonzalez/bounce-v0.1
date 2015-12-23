@@ -7,7 +7,9 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.Switch;
 import android.widget.TextView;
 
 import java.io.ByteArrayOutputStream;
@@ -27,12 +29,14 @@ import java.util.Enumeration;
 public class ConnectionSettings extends ActionBarActivity {
 
     /*Client*/
-    TextView textResponse;
+    TextView inputTextAddress, inputTextPort, responseTextView;
     EditText editTextAddress, editTextPort;
-    Button buttonConnect, buttonClear;
+    Button buttonConnect;
+
+    Switch hostSwitch, clientSwitch;
 
     /*Server*/
-    TextView info, infoip, msg;
+    TextView portTextView, ipSpecifierTextView, serverMessage;
     String message = "";
     ServerSocket serverSocket;
 
@@ -43,34 +47,74 @@ public class ConnectionSettings extends ActionBarActivity {
         setContentView(R.layout.activity_connection_settings);
 
         if (savedInstanceState == null) {
-            editTextAddress = (EditText) findViewById(R.id.ip_address_edit);
-            editTextPort = (EditText) findViewById(R.id.port_edit);
+
+            /*For the client*/
+            editTextAddress = (EditText) findViewById(R.id.input_ip_edittext);
+            editTextPort = (EditText) findViewById(R.id.input_port_edittext);
             buttonConnect = (Button) findViewById(R.id.connect_button);
-            buttonClear = (Button) findViewById(R.id.clear_button);
-            textResponse = (TextView) findViewById(R.id.response_textview);
+            inputTextAddress = (TextView) findViewById(R.id.input_ip_textview);
+            inputTextPort = (TextView) findViewById(R.id.input_port_textview);
+            responseTextView = (TextView) findViewById(R.id.response_textview);
+            serverMessage = (TextView) findViewById(R.id.server_message_textview);
 
-            buttonConnect.setOnClickListener(new View.OnClickListener() {
+            /*For the host*/
+            portTextView = (TextView) findViewById(R.id.port_specifier_textview);
+            ipSpecifierTextView = (TextView) findViewById(R.id.ip_specifier_textview);
+
+            /*To choose*/
+            hostSwitch = (Switch) findViewById(R.id.host_switch);
+            clientSwitch = (Switch) findViewById(R.id.connect_to_host_switch);
+
+            hostSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                 @Override
-                public void onClick(View v) {
-                    MyClientTask myClientTask = new MyClientTask(editTextAddress.getText().toString(), Integer.parseInt(editTextPort.getText().toString()));
-                    myClientTask.execute();
+                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                    if (isChecked) {
+                        ipSpecifierTextView.setVisibility(View.VISIBLE);
+                        portTextView.setVisibility(View.VISIBLE);
+                        serverMessage.setVisibility(View.VISIBLE);
+                        clientSwitch.setEnabled(false);
+                        ipSpecifierTextView.setText(getIpAddress());
+                        Thread socketServerThread = new Thread(new SocketServerThread());
+                        socketServerThread.start();
+                    } else {
+                        ipSpecifierTextView.setVisibility(View.INVISIBLE);
+                        portTextView.setVisibility(View.INVISIBLE);
+                        serverMessage.setVisibility(View.INVISIBLE);
+                        clientSwitch.setEnabled(true);
+                    }
                 }
             });
-            buttonClear.setOnClickListener(new View.OnClickListener() {
+
+            clientSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                 @Override
-                public void onClick(View v) {
-                    textResponse.setText("");
+                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                    if (isChecked) {
+                        hostSwitch.setEnabled(false);
+                        buttonConnect.setVisibility(View.VISIBLE);
+                        editTextAddress.setVisibility(View.VISIBLE);
+                        editTextPort.setVisibility(View.VISIBLE);
+                        inputTextAddress.setVisibility(View.VISIBLE);
+                        inputTextPort.setVisibility(View.VISIBLE);
+                        responseTextView.setVisibility(View.VISIBLE);
+
+                        buttonConnect.setOnClickListener(new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+                                MyClientTask myClientTask = new MyClientTask(editTextAddress.getText().toString(), Integer.parseInt(editTextPort.getText().toString()));
+                                myClientTask.execute();
+                            }
+                        });
+                    } else {
+                        hostSwitch.setEnabled(true);
+                        buttonConnect.setVisibility(View.INVISIBLE);
+                        editTextAddress.setVisibility(View.INVISIBLE);
+                        editTextPort.setVisibility(View.INVISIBLE);
+                        inputTextAddress.setVisibility(View.INVISIBLE);
+                        inputTextPort.setVisibility(View.INVISIBLE);
+                        responseTextView.setVisibility(View.INVISIBLE);
+                    }
                 }
             });
-
-            info = (TextView) findViewById(R.id.info);
-            infoip = (TextView) findViewById(R.id.infoip);
-            msg = (TextView) findViewById(R.id.msg);
-
-            infoip.setText(getIpAddress());
-
-            Thread socketServerThread = new Thread(new SocketServerThread());
-            socketServerThread.start();
         }
     }
 
@@ -104,7 +148,6 @@ public class ConnectionSettings extends ActionBarActivity {
             try {
                 serverSocket.close();
             } catch (IOException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         }
@@ -115,23 +158,19 @@ public class ConnectionSettings extends ActionBarActivity {
         try {
             Enumeration<NetworkInterface> enumNetworkInterfaces = NetworkInterface.getNetworkInterfaces();
             while (enumNetworkInterfaces.hasMoreElements()) {
-                NetworkInterface networkInterface = enumNetworkInterfaces
-                        .nextElement();
-                Enumeration<InetAddress> enumInetAddress = networkInterface
-                        .getInetAddresses();
+                NetworkInterface networkInterface = enumNetworkInterfaces.nextElement();
+                Enumeration<InetAddress> enumInetAddress = networkInterface.getInetAddresses();
                 while (enumInetAddress.hasMoreElements()) {
                     InetAddress inetAddress = enumInetAddress.nextElement();
-
                     if (inetAddress.isSiteLocalAddress()) {
-                        ip += "SiteLocalAddress: " + inetAddress.getHostAddress() + "\n";
+                        ip = "Local IP Address: " + inetAddress.getHostAddress();
                     }
                 }
             }
 
         } catch (SocketException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
-            ip += "Something Wrong! " + e.toString() + "\n";
+            ip = "Something Wrong! " + e.toString();
         }
 
         return ip;
@@ -162,21 +201,15 @@ public class ConnectionSettings extends ActionBarActivity {
                 int bytesRead;
                 InputStream inputStream = socket.getInputStream();
 
-    /*
-     * notice:
-     * inputStream.read() will block if no data return
-     */
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
                     byteArrayOutputStream.write(buffer, 0, bytesRead);
                     response += byteArrayOutputStream.toString("UTF-8");
                 }
 
             } catch (UnknownHostException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
                 response = "UnknownHostException: " + e.toString();
             } catch (IOException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
                 response = "IOException: " + e.toString();
             } finally {
@@ -184,7 +217,6 @@ public class ConnectionSettings extends ActionBarActivity {
                     try {
                         socket.close();
                     } catch (IOException e) {
-                        // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
                 }
@@ -194,7 +226,8 @@ public class ConnectionSettings extends ActionBarActivity {
 
         @Override
         protected void onPostExecute(Void result) {
-            textResponse.setText(response);
+            /*Recieved from the server*/
+            responseTextView.setText(response);
             super.onPostExecute(result);
         }
 
@@ -210,28 +243,26 @@ public class ConnectionSettings extends ActionBarActivity {
             try {
                 serverSocket = new ServerSocket(SocketServerPORT);
                 ConnectionSettings.this.runOnUiThread(new Runnable() {
-
                     @Override
                     public void run() {
-                        info.setText("I'm waiting here: " + serverSocket.getLocalPort());
+                        portTextView.setText("I'm waiting here: " + serverSocket.getLocalPort());
                     }
                 });
 
                 while (true) {
                     Socket socket = serverSocket.accept();
                     count++;
-                    message += "#" + count + " from " + socket.getInetAddress() + ":" + socket.getPort() + "\n";
+                    message = "#" + count + " from " + socket.getInetAddress() + ":" + socket.getPort();
 
                     ConnectionSettings.this.runOnUiThread(new Runnable() {
-
                         @Override
                         public void run() {
-                            msg.setText(message);
+                            /*Message recieved from the client*/
+                            serverMessage.setText(message);
                         }
                     });
 
-                    SocketServerReplyThread socketServerReplyThread = new SocketServerReplyThread(
-                            socket, count);
+                    SocketServerReplyThread socketServerReplyThread = new SocketServerReplyThread(socket, count);
                     socketServerReplyThread.run();
 
                 }
@@ -264,27 +295,24 @@ public class ConnectionSettings extends ActionBarActivity {
                 printStream.print(msgReply);
                 printStream.close();
 
-                message += "replayed: " + msgReply + "\n";
+                message = "replayed: " + msgReply;
 
                 ConnectionSettings.this.runOnUiThread(new Runnable() {
-
                     @Override
                     public void run() {
-                        msg.setText(message);
+                        serverMessage.setText(message);
                     }
                 });
 
             } catch (IOException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
-                message += "Something wrong! " + e.toString() + "\n";
+                message = "Something wrong! " + e.toString();
             }
 
             ConnectionSettings.this.runOnUiThread(new Runnable() {
-
                 @Override
                 public void run() {
-                    msg.setText(message);
+                    serverMessage.setText(message);
                 }
             });
         }
