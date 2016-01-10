@@ -1,10 +1,13 @@
 package com.abraham.android.bounce;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBarActivity;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -41,7 +44,7 @@ import java.net.URL;
 import java.util.ArrayList;
 
 
-public class MusicScreen extends Activity implements PlayerNotificationCallback, ConnectionStateCallback {
+public class MusicScreen extends ActionBarActivity implements NavigationDrawerFragment.OnFragmentInteractionListener, PlayerNotificationCallback, ConnectionStateCallback {
 
     private static final int NAME = 0;
     private static final int ARTIST = 1;
@@ -66,11 +69,21 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
 
     public MusicPlayerData mpData;
     boolean refreshing = false;
+    private Toolbar toolbar;
+    private Spinner spinner_nav;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_music_screen);
+
+        toolbar = (Toolbar) findViewById(R.id.app_bar);
+        setSupportActionBar(toolbar);
+        NavigationDrawerFragment drawerFragment = (NavigationDrawerFragment) getFragmentManager().findFragmentById(R.id.fragment_navigation_drawer);
+        drawerFragment.setUp(R.id.fragment_navigation_drawer, (DrawerLayout) findViewById(R.id.drawer_layout), toolbar);
+        getSupportActionBar().setDisplayShowHomeEnabled(true);
+        getSupportActionBar().setDisplayShowTitleEnabled(false);
+
         /*The initialization for the lists and the different elements of the layout*/
         initializeLayout();
         /*Sets up the Spotify player (Authenticates and Sets up a login)(Makes sure that this portion is not done twice)*/
@@ -86,8 +99,8 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         /*Creates the music data object that contains the mpData.state of the player*/
         mpData = new MusicPlayerData();
 
-        /*Setups up the slide-in menu*/
-        ListView drawerListView = (ListView) findViewById(R.id.left_drawer);
+         /*Setups up the slide-in menu*/
+        ListView drawerListView = (ListView) findViewById(R.id.drawer_listview);
         drawerListView.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, menuItems));
         drawerListView.setVisibility(View.VISIBLE);
         drawerListView.setOnItemClickListener(new DrawerItemClickListener());
@@ -95,8 +108,10 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         /*Setup the playlist dropdown menu*/
         itemsInSpinner = new ArrayList<>();
         playlistSpinnerAdapter = new ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, itemsInSpinner);
-        Spinner playlistSpinner = (Spinner) findViewById(R.id.playlist_spinner);
-        playlistSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+
+        spinner_nav = (Spinner) findViewById(R.id.spinner_nav);
+        spinner_nav.setVisibility(View.VISIBLE);
+        spinner_nav.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 if (!refreshing) {
@@ -117,7 +132,8 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
 
             }
         });
-        playlistSpinner.setAdapter(playlistSpinnerAdapter);
+        spinner_nav.setAdapter(playlistSpinnerAdapter);
+
 
         /*Sets up the global names in the playlists that are passed back and forth between threads*/
         playlistDataArray = new ArrayList<>();
@@ -395,6 +411,11 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         Log.d("MainActivity", "Spotify Player destroyed");
     }
 
+    @Override
+    public void onFragmentInteraction(Uri uri) {
+
+    }
+
     /*Enum for mpData.statemachine in NetworkingThread*/
     private enum State {
         IDLE,
@@ -429,25 +450,6 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
 
         /*Spotify Player*/
         private Player mPlayer;
-    }
-
-    private class DrawerItemClickListener implements ListView.OnItemClickListener {
-        @Override
-        public void onItemClick(AdapterView parent, View view, int position, long id) {
-            Log.d(MATag, "NavDrawer Clicked");
-            ListView drawerListView = (ListView) findViewById(R.id.left_drawer);
-            String recievedString = (String) drawerListView.getItemAtPosition(position);
-            Intent sendIntent;
-
-            /*Determine where to go when an item in the nav drawer is clicked*/
-            if (recievedString == "About") {
-                sendIntent = new Intent(getApplicationContext(), About.class);
-                startActivity(sendIntent);
-            } else if (recievedString == "Settings") {
-                sendIntent = new Intent(getApplicationContext(), Settings.class);
-                startActivity(sendIntent);
-            }
-        }
     }
 
     private class NetworkingThread extends AsyncTask<MusicScreen.State, Integer, MusicScreen.State> {
@@ -834,6 +836,25 @@ public class MusicScreen extends Activity implements PlayerNotificationCallback,
         class ViewHolder {
             TextView txtSongName;
             TextView txtArtistName;
+        }
+    }
+
+    private class DrawerItemClickListener implements ListView.OnItemClickListener {
+        @Override
+        public void onItemClick(AdapterView parent, View view, int position, long id) {
+            Log.d(MATag, "NavDrawer Clicked");
+            ListView drawerListView = (ListView) findViewById(R.id.drawer_listview);
+            String recievedString = (String) drawerListView.getItemAtPosition(position);
+            Intent sendIntent;
+
+            /*Determine where to go when an item in the nav drawer is clicked*/
+            if (recievedString == "About") {
+                sendIntent = new Intent(getApplicationContext(), About.class);
+                startActivity(sendIntent);
+            } else if (recievedString == "Settings") {
+                sendIntent = new Intent(getApplicationContext(), Settings.class);
+                startActivity(sendIntent);
+            }
         }
     }
 }

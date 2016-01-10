@@ -1,8 +1,12 @@
 package com.abraham.android.bounce;
 
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.v4.app.NavUtils;
 import android.support.v7.app.ActionBarActivity;
+import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -11,6 +15,16 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.Switch;
 import android.widget.TextView;
+
+import com.spotify.sdk.android.authentication.AuthenticationClient;
+import com.spotify.sdk.android.authentication.AuthenticationResponse;
+import com.spotify.sdk.android.player.Config;
+import com.spotify.sdk.android.player.ConnectionStateCallback;
+import com.spotify.sdk.android.player.PlayConfig;
+import com.spotify.sdk.android.player.Player;
+import com.spotify.sdk.android.player.PlayerNotificationCallback;
+import com.spotify.sdk.android.player.PlayerState;
+import com.spotify.sdk.android.player.Spotify;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -23,23 +37,28 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Enumeration;
 
 
-public class ConnectionSettings extends ActionBarActivity {
+public class ConnectionSettings extends ActionBarActivity implements PlayerNotificationCallback, ConnectionStateCallback {
 
+    /*Specific codes in order to access the Spotify API*/
+    private static final String CLIENT_ID = "ccf6c320eb754ab0bd13358005a32e4f";
+    private static final String REDIRECT_URI = "bounceredirect://callback";
+    private static final int REQUEST_CODE = 1337;
+    public String accessToken;
     /*Client*/
     TextView inputTextAddress, inputTextPort, responseTextView;
     EditText editTextAddress, editTextPort;
     Button buttonConnect;
-
     Switch hostSwitch, clientSwitch;
-
     /*Server*/
     TextView portTextView, ipSpecifierTextView, serverMessage;
     String message = "";
     ServerSocket serverSocket;
-
+    Player mPlayer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,6 +134,11 @@ public class ConnectionSettings extends ActionBarActivity {
                     }
                 }
             });
+
+            Toolbar toolbar = (Toolbar) findViewById(R.id.app_bar);
+            setSupportActionBar(toolbar);
+            getSupportActionBar().setHomeButtonEnabled(true);
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
     }
 
@@ -135,6 +159,8 @@ public class ConnectionSettings extends ActionBarActivity {
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
             return true;
+        } else if (id == android.R.id.home) {
+            NavUtils.navigateUpFromSameTask(this);
         }
 
         return super.onOptionsItemSelected(item);
@@ -143,7 +169,7 @@ public class ConnectionSettings extends ActionBarActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
+        Spotify.destroyPlayer(this);
         if (serverSocket != null) {
             try {
                 serverSocket.close();
@@ -174,6 +200,71 @@ public class ConnectionSettings extends ActionBarActivity {
         }
 
         return ip;
+    }
+
+    @Override
+    public void onLoggedIn() {
+
+    }
+
+    @Override
+    public void onLoggedOut() {
+
+    }
+
+    @Override
+    public void onLoginFailed(Throwable throwable) {
+
+    }
+
+    @Override
+    public void onTemporaryError() {
+
+    }
+
+    @Override
+    public void onConnectionMessage(String s) {
+
+    }
+
+    @Override
+    public void onPlaybackEvent(EventType eventType, PlayerState playerState) {
+
+    }
+
+    @Override
+    public void onPlaybackError(ErrorType errorType, String s) {
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
+        super.onActivityResult(requestCode, resultCode, intent);
+
+        /*Check to make sure that the activity that finished was the Spotify activity*/
+        if (requestCode == REQUEST_CODE) {
+            AuthenticationResponse response = AuthenticationClient.getResponse(resultCode, intent);
+            if (response.getType() == AuthenticationResponse.Type.TOKEN) {
+                /*Setup a new configuration for Spotify*/
+                Config playerConfig = new Config(this, response.getAccessToken(), CLIENT_ID);
+                accessToken = response.getAccessToken();
+
+                mPlayer = Spotify.getPlayer(playerConfig, this, new Player.InitializationObserver() {
+                    @Override
+                    public void onInitialized(Player player) {
+                        mPlayer.addConnectionStateCallback(ConnectionSettings.this);
+                        mPlayer.addPlayerNotificationCallback(ConnectionSettings.this);
+                        /*Have another thread make periodic callbacks inorder to refresh seek bar*/
+                        Log.d("Bounce", "Player is initialized");
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+                        Log.e("MainActivity", "Could not initialize player: " + throwable.getMessage());
+                    }
+                });
+            }
+        }
     }
 
     public class MyClientTask extends AsyncTask<Void, Void, Void> {
@@ -227,6 +318,17 @@ public class ConnectionSettings extends ActionBarActivity {
         @Override
         protected void onPostExecute(Void result) {
             /*Recieved from the server*/
+            String currentTrackID = "spotify:track:2TpxZ7JUBn3uw46aR7qd6V";
+            int position = 0;
+            boolean isStop = false;
+
+            if (!isStop) {
+                PlayConfig myConfig = PlayConfig.createFor("spotify:track:" + currentTrackID);
+                myConfig.withInitialPosition(position);
+                mPlayer.play(myConfig);
+            } else {
+                mPlayer.pause();
+            }
             responseTextView.setText(response);
             super.onPostExecute(result);
         }
@@ -252,8 +354,9 @@ public class ConnectionSettings extends ActionBarActivity {
                 while (true) {
                     Socket socket = serverSocket.accept();
                     count++;
-                    message = "#" + count + " from " + socket.getInetAddress() + ":" + socket.getPort();
-
+                    Calendar cal = Calendar.getInstance();
+                    SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+                    message = "This is from the serverThread" + sdf.format(cal.getTime());
                     ConnectionSettings.this.runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -287,15 +390,16 @@ public class ConnectionSettings extends ActionBarActivity {
         @Override
         public void run() {
             OutputStream outputStream;
-            String msgReply = "Hello from Android, you are #" + cnt;
-
+            Calendar cal = Calendar.getInstance();
+            SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+            String msgReply = "Server->Client" + sdf.format(cal.getTime());
             try {
                 outputStream = hostThreadSocket.getOutputStream();
                 PrintStream printStream = new PrintStream(outputStream);
                 printStream.print(msgReply);
                 printStream.close();
 
-                message = "replayed: " + msgReply;
+                message = "Server->Server" + sdf.format(cal.getTime());
 
                 ConnectionSettings.this.runOnUiThread(new Runnable() {
                     @Override
@@ -316,6 +420,5 @@ public class ConnectionSettings extends ActionBarActivity {
                 }
             });
         }
-
     }
 }
