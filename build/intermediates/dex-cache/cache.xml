@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<items version="2" >
+
+    <item
+        jar="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\exploded-aar\com.android.support\design\22.2.1\jars\classes.jar"
+        jumboMode="false"
+        revision="23.0.1"
+        sha1="1821601ddbec5ff125653097812823388700af74">
+        <dex dex="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\pre-dexed\debug\classes-daa8df0b81e197839ff6994472df6570faad326a.jar" />
+    </item>
+    <item
+        jar="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\libs\gson-2.3.1.jar"
+        jumboMode="false"
+        revision="23.0.1"
+        sha1="ecb6e1f8e4b0e84c4b886c2f14a1500caf309757">
+        <dex dex="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\pre-dexed\debug\gson-2.3.1-217613cc46feeb9661bcd01c94133aa0f86d7ae4.jar" />
+    </item>
+    <item
+        jar="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\exploded-aar\com.android.support\appcompat-v7\22.2.1\jars\classes.jar"
+        jumboMode="false"
+        revision="23.0.1"
+        sha1="4486e953d1f35f8ccab098b1dd67146366d5f731">
+        <dex dex="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\pre-dexed\debug\classes-46e16421f83de28833a8cb54245a703f46e386d2.jar" />
+    </item>
+    <item
+        jar="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\exploded-aar\com.spotify.sdk\spotify-player\1.0.0-beta10\jars\classes.jar"
+        jumboMode="false"
+        revision="23.0.1"
+        sha1="303cdfb0e82e35c8ee189313e3d0ccc144accdc4">
+        <dex dex="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\pre-dexed\debug\classes-c0e3ba84b9f4a6c103204e3e12b918a7a624918c.jar" />
+    </item>
+    <item
+        jar="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\exploded-aar\com.spotify.sdk\spotify-auth\1.0.0-beta10\jars\classes.jar"
+        jumboMode="false"
+        revision="23.0.1"
+        sha1="a2736a2c8e3bd1d508baa11851e9a77f62646d08">
+        <dex dex="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\pre-dexed\debug\classes-9bfa32e248691f69c5626ee99690b1898597571d.jar" />
+    </item>
+    <item
+        jar="C:\Users\Abraham\AppData\Local\Android\sdk2\extras\android\m2repository\com\android\support\support-annotations\22.2.1\support-annotations-22.2.1.jar"
+        jumboMode="false"
+        revision="23.0.1"
+        sha1="61a0ff5c29295ec56d7e0bd3d25d95dbf71b4b2b">
+        <dex dex="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\pre-dexed\debug\support-annotations-22.2.1-e4c8b3c35fac18ca7142eae8f78c62217b8460e5.jar" />
+    </item>
+    <item
+        jar="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\exploded-aar\com.android.support\support-v4\22.2.1\jars\classes.jar"
+        jumboMode="false"
+        revision="23.0.1"
+        sha1="f8efd0096475e0daf054267b61544e10dc776503">
+        <dex dex="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\pre-dexed\debug\classes-eb94f5e354a75c2a1e498a2bf7f7d7b4b1fe9d72.jar" />
+    </item>
+    <item
+        jar="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\exploded-aar\com.spotify.sdk\spotify-player\1.0.0-beta10\jars\libs\jnihelpers-1.0.jar"
+        jumboMode="false"
+        revision="23.0.1"
+        sha1="863562b367d763d45f9bb44f58a5029007f79555">
+        <dex dex="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\pre-dexed\debug\jnihelpers-1.0-f2a0a5406f3b231795f091fdd71a82b025ac09f3.jar" />
+    </item>
+    <item
+        jar="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\exploded-aar\com.android.support\support-v4\22.2.1\jars\libs\internal_impl-22.2.1.jar"
+        jumboMode="false"
+        revision="23.0.1"
+        sha1="c471eaaba13ff64f6e0383d1c30a9cdc9a97efeb">
+        <dex dex="C:\Users\Abraham\AndroidStudioProjects\Bounce\app\build\intermediates\pre-dexed\debug\internal_impl-22.2.1-3fcb9c83f625f70719ebafb6186fb37bf958fe2c.jar" />
+    </item>
+
+</items>
