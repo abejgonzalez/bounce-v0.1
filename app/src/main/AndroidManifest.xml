@@ -14,15 +14,8 @@
         <activity
             android:name=".MusicScreen"
             android:label="@string/title_activity_music_screen"
+            android:launchMode="singleTop"
             android:screenOrientation="portrait">
-        </activity>
-        <activity
-            android:name=".Settings"
-            android:label="@string/title_activity_settings"
-            android:screenOrientation="portrait">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value=".MusicScreen" />
         </activity>
         <activity
             android:name=".LoginScreen"
@@ -33,14 +26,6 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-        <activity
-            android:name=".ConnectionSettings"
-            android:label="@string/title_activity_connection_settings"
-            android:screenOrientation="portrait">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value=".Settings" />
         </activity>
         <activity
             android:name=".About"
@@ -54,6 +39,14 @@
             android:name="com.spotify.sdk.android.authentication.LoginActivity"
             android:screenOrientation="portrait"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity
+            android:name=".Settings"
+            android:label="@string/title_activity_settings"
+            android:screenOrientation="portrait">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".MusicScreen" />
+        </activity>
     </application>
 
 </manifest>

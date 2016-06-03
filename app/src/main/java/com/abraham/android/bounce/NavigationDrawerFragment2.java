@@ -15,7 +15,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
-public class NavigationDrawerFragment extends Fragment {
+public class NavigationDrawerFragment2 extends Fragment {
 
     public static final String PREF_FILE_NAME = "testpref";
     public static final String KEY_USER_LEARNED_DRAWER = "user_learned_drawer";
@@ -28,7 +28,7 @@ public class NavigationDrawerFragment extends Fragment {
     private View mLeftDrawerView;
     private View mRightDrawerView;
 
-    public NavigationDrawerFragment() {
+    public NavigationDrawerFragment2() {
         // Required empty public constructor
     }
 
@@ -60,7 +60,7 @@ public class NavigationDrawerFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_navigation_drawer, container, false);
+        return inflater.inflate(R.layout.fragment_navigation_drawer2, container, false);
     }
 
     @Override

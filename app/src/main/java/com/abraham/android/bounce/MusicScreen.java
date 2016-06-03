@@ -6,7 +6,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.widget.DrawerLayout;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -17,7 +17,7 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
-import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.SeekBar;
 import android.widget.Spinner;
@@ -44,7 +44,7 @@ import java.net.URL;
 import java.util.ArrayList;
 
 
-public class MusicScreen extends ActionBarActivity implements NavigationDrawerFragment.OnFragmentInteractionListener, PlayerNotificationCallback, ConnectionStateCallback {
+public class MusicScreen extends AppCompatActivity implements NavigationDrawerFragment.OnFragmentInteractionListener, PlayerNotificationCallback, ConnectionStateCallback {
 
     private static final int NAME = 0;
     private static final int ARTIST = 1;
@@ -77,10 +77,13 @@ public class MusicScreen extends ActionBarActivity implements NavigationDrawerFr
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_music_screen);
 
+        /*Setup the toolbar and navigation drawer*/
         toolbar = (Toolbar) findViewById(R.id.app_bar);
         setSupportActionBar(toolbar);
         NavigationDrawerFragment drawerFragment = (NavigationDrawerFragment) getFragmentManager().findFragmentById(R.id.fragment_navigation_drawer);
         drawerFragment.setUp(R.id.fragment_navigation_drawer, (DrawerLayout) findViewById(R.id.drawer_layout), toolbar);
+        NavigationDrawerFragment drawerFragment2 = (NavigationDrawerFragment) getFragmentManager().findFragmentById(R.id.fragment_navigation_drawer2);
+        drawerFragment.setUp(R.id.fragment_navigation_drawer2, (DrawerLayout) findViewById(R.id.drawer_layout), toolbar);
         getSupportActionBar().setDisplayShowHomeEnabled(true);
         getSupportActionBar().setDisplayShowTitleEnabled(false);
 
@@ -118,8 +121,6 @@ public class MusicScreen extends ActionBarActivity implements NavigationDrawerFr
                     final AdapterView<?> parentVar = parent;
                     final int posVar = position;
                     Log.d("Bounce", "Playlist Changed in Spinner");
-                    final TextView playlistName = (TextView) findViewById(R.id.playlist_name);
-                    playlistName.setText(parentVar.getItemAtPosition(posVar).toString());
                     mpData.currentPlaylistId = playlistDataArray.get(ARTIST).get(position);
 
                     new NetworkingThread().execute(State.GET_PLAYLIST_SONGS);
@@ -164,6 +165,8 @@ public class MusicScreen extends ActionBarActivity implements NavigationDrawerFr
         /*Get the Id of the song in the list as well as the index*/
                 mpData.currentTrackData[ID] = trackDataArray.get(ID).get(pos);
                 mpData.currentIndexInList = pos;
+                ImageButton playButton = (ImageButton) findViewById(R.id.play_stop_button);
+                playButton.setImageResource(R.drawable.pause);
 
         /*Play song and fill out the song data*/
                 mpData.mPlayer.play("spotify:track:" + mpData.currentTrackData[ID]);
@@ -218,9 +221,9 @@ public class MusicScreen extends ActionBarActivity implements NavigationDrawerFr
         });
 
 
-        final Button playStopButton = (Button) findViewById(R.id.play_button);
-        final Button forwardButton = (Button) findViewById(R.id.forward_button);
-        final Button backButton = (Button) findViewById(R.id.back_button);
+        final ImageButton playStopButton = (ImageButton) findViewById(R.id.play_stop_button);
+        final ImageButton forwardButton = (ImageButton) findViewById(R.id.forward_button);
+        final ImageButton backButton = (ImageButton) findViewById(R.id.back_button);
 
         /*Set up onClick listener for the buttons*/
         View.OnClickListener listener = new View.OnClickListener() {
@@ -229,7 +232,7 @@ public class MusicScreen extends ActionBarActivity implements NavigationDrawerFr
                 if (v == playStopButton) {
                     Log.d("Bounce", "Play Stop Button Clicked");
                     /*Specifies the button for the rest of the program*/
-                    final Button playStopButton = (Button) findViewById(R.id.play_button);
+                    final ImageButton playStopButton = (ImageButton) findViewById(R.id.play_stop_button);
 
                     if (!mpData.isPlayingMusic && mpData.isSongStarted) {
                         /*Play song from a certain position*/
@@ -239,7 +242,7 @@ public class MusicScreen extends ActionBarActivity implements NavigationDrawerFr
                         MusicScreen.this.runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                playStopButton.setText("Stop");
+                                playStopButton.setImageResource(R.drawable.pause);
                             }
                         });
                         mpData.isPlayingMusic = true;
@@ -249,7 +252,7 @@ public class MusicScreen extends ActionBarActivity implements NavigationDrawerFr
                         MusicScreen.this.runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                playStopButton.setText("Play");
+                                playStopButton.setImageResource(R.drawable.play);
                             }
                         });
                         mpData.isPlayingMusic = false;
@@ -274,6 +277,12 @@ public class MusicScreen extends ActionBarActivity implements NavigationDrawerFr
                         /*Get the UserId using the mpData.statemachine in the other thread*/
                         new NetworkingThread().execute(State.GET_SONG_DATA);
                     }
+                    MusicScreen.this.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            playStopButton.setImageResource(R.drawable.pause);
+                        }
+                    });
                 } else if (v == backButton) {
                     Log.d("Bounce", "Back Button clicked");
                     final SeekBar songSeekBar = (SeekBar) findViewById(R.id.player_seek_bar);
@@ -297,6 +306,12 @@ public class MusicScreen extends ActionBarActivity implements NavigationDrawerFr
                         /*Get the UserId using the mpData.statemachine in the other thread*/
                         new NetworkingThread().execute(State.GET_SONG_DATA);
                     }
+                    MusicScreen.this.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            playStopButton.setImageResource(R.drawable.pause);
+                        }
+                    });
                 }
             }
         };
